@@ -63,11 +63,12 @@ GRANT elis_ms_pfvs_read_role,elis_ms_epis_read_role,elis_ms_pdfi_ss_read_role,el
 GRANT elis_ms_pfvs_write_role,elis_ms_epis_write_role,elis_ms_pdfi_ss_write_role,elis_ms_pdfi_ps_write_role,elis_ms_pdfi_lgs_write_role TO elis_ms_all_write_role;
 
 -- grants
-GRANT elis_ms_pfvs TO master, elis_ms_pfvs_app;
-GRANT elis_ms_epis TO master, elis_ms_epis_app;
-GRANT elis_ms_pdfi_ss TO master, elis_ms_pdfi_ss_app;
-GRANT elis_ms_pdfi_ps TO master, elis_ms_pdfi_ps_app;
-GRANT elis_ms_pdfi_lgs TO master, elis_ms_pdfi_lgs_app;
+GRANT elis_ms_pfvs,elis_ms_epis,elis_ms_pdfi_ss,elis_ms_pdfi_ps,elis_ms_pdfi_lgs TO master;
+GRANT elis_ms_pfvs_write_role TO elis_ms_pfvs_app;
+GRANT elis_ms_epis_write_role TO elis_ms_epis_app;
+GRANT elis_ms_pdfi_ss_write_role TO elis_ms_pdfi_ss_app;
+GRANT elis_ms_pdfi_ps_write_role TO elis_ms_pdfi_ps_app;
+GRANT elis_ms_pdfi_lgs_write_role TO elis_ms_pdfi_lgs_app;
 -- create database
 CREATE DATABASE elis_ms_pdfi WITH OWNER elis_ms_pdfi;
 GRANT elis_ms_pdfi TO master;
