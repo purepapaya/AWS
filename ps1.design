@@ -1,0 +1,27 @@
+RDS PostgreSQL
+└── elis_ms_pdfi
+    │
+    ├── Database owner
+    │   └── elis_ms_pdfi
+    │
+    ├── elis_ms_pfvs
+    │   ├── Schema owner/login: elis_ms_pfvs
+    │   │      └── Dev deployment / DDL
+    │   │
+    │   ├── IAM owner: elis_ms_pfvs_iam
+    │   │      └── Alternate IAM deployment access
+    │   │
+    │   ├── App user: elis_ms_pfvs_app
+    │   │
+    │   ├── App IAM: elis_ms_pfvs_app_iam
+    │   │
+    │   ├── Read role
+    │   └── Write role
+    │
+    ├── elis_ms_epis
+    ├── elis_ms_pdfi_ss
+    ├── elis_ms_pdfi_ps
+    └── elis_ms_pdfi_lgs
+Moving away from following ELIS out-of-date standards:
+(1) removed custom tablespace.  (AWS RDS PostgreSQL, tablespaces generally do not give you separate physical disks, separate storage performance, or separate backup behavior the way they might in a self-managed PostgreSQL environment. RDS manages the underlying storage for you.)
+(2) _app user gets _write_role instead of schema owner role.  (prevent it from deploying schema changes)
