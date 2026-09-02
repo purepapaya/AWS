@@ -1,4 +1,3 @@
-tablespace: elis_ms_pdfi
 Database: elis_ms_pdfi
 Database owner: elis_ms_pdfi
 Schemas: (elis_ms_pfvs, elis_ms_epis) and three new ones (elis_ms_pdfi_ss, elis_ms_pdfi_ps, elis_ms_pdfi_lgs)
@@ -67,11 +66,10 @@ GRANT elis_ms_pfvs_write_role,elis_ms_epis_write_role,elis_ms_pdfi_ss_write_role
 GRANT elis_ms_pfvs TO master, elis_ms_pfvs_app;
 GRANT elis_ms_epis TO master, elis_ms_epis_app;
 GRANT elis_ms_pdfi_ss TO master, elis_ms_pdfi_ss_app;
-GRANT elis_ms_pdfi_ps TO master, elis_ms_pdfi_ss_app;
+GRANT elis_ms_pdfi_ps TO master, elis_ms_pdfi_ps_app;
 GRANT elis_ms_pdfi_lgs TO master, elis_ms_pdfi_lgs_app;
 -- create database
-CREATE TABLESPACE elis_ms_pdfi owner elis_ms_pdfi;
-CREATE DATABASE elis_ms_pdfi WITH OWNER elis_ms_pdfi TABLESPACE elis_ms_pdfi;
+CREATE DATABASE elis_ms_pdfi WITH OWNER elis_ms_pdfi;
 GRANT elis_ms_pdfi TO master;
 -- create schemas
 \c elis_ms_pdfi
@@ -82,16 +80,16 @@ CREATE SCHEMA elis_ms_pdfi_ss AUTHORIZATION elis_ms_pdfi_ss;
 CREATE SCHEMA elis_ms_pdfi_ps AUTHORIZATION elis_ms_pdfi_ps;
 CREATE SCHEMA elis_ms_pdfi_lgs AUTHORIZATION elis_ms_pdfi_lgs;
 -- search path
-ALTER ROLE elis_ms_pfvs_app IN DATABASE elis_ms_pfvs SET search_path TO elis_ms_pfvs,pg_catalog;
-ALTER ROLE elis_ms_epis_app IN DATABASE elis_ms_epis SET search_path TO elis_ms_epis,pg_catalog;
-ALTER ROLE elis_ms_pdfi_ss_app IN DATABASE elis_ms_pdfi_ss SET search_path TO elis_ms_pdfi_ss,pg_catalog;
-ALTER ROLE elis_ms_pdfi_ps_app IN DATABASE elis_ms_pdfi_ps SET search_path TO elis_ms_pdfi_ps,pg_catalog;
-ALTER ROLE elis_ms_pdfi_lgs_app IN DATABASE elis_ms_pdfi_lgs SET search_path TO elis_ms_pdfi_lgs,pg_catalog;
-ALTER ROLE elis_ms_pfvs_app_iam IN DATABASE elis_ms_pfvs SET search_path TO elis_ms_pfvs,pg_catalog;
-ALTER ROLE elis_ms_epis_app_iam IN DATABASE elis_ms_epis SET search_path TO elis_ms_epis,pg_catalog;
-ALTER ROLE elis_ms_pdfi_ss_app_iam IN DATABASE elis_ms_pdfi_ss SET search_path TO elis_ms_pdfi_ss,pg_catalog;
-ALTER ROLE elis_ms_pdfi_ps_app_iam IN DATABASE elis_ms_pdfi_ps SET search_path TO elis_ms_pdfi_ps,pg_catalog;
-ALTER ROLE elis_ms_pdfi_lgs_app_iam IN DATABASE elis_ms_pdfi_lgs SET search_path TO elis_ms_pdfi_lgs,pg_catalog;
+ALTER ROLE elis_ms_pfvs_app IN DATABASE elis_ms_pdfi SET search_path TO elis_ms_pfvs,pg_catalog;
+ALTER ROLE elis_ms_epis_app IN DATABASE elis_ms_pdfi SET search_path TO elis_ms_epis,pg_catalog;
+ALTER ROLE elis_ms_pdfi_ss_app IN DATABASE elis_ms_pdfi SET search_path TO elis_ms_pdfi_ss,pg_catalog;
+ALTER ROLE elis_ms_pdfi_ps_app IN DATABASE elis_ms_pdfi SET search_path TO elis_ms_pdfi_ps,pg_catalog;
+ALTER ROLE elis_ms_pdfi_lgs_app IN DATABASE elis_ms_pdfi SET search_path TO elis_ms_pdfi_lgs,pg_catalog;
+ALTER ROLE elis_ms_pfvs_app_iam IN DATABASE elis_ms_pdfi SET search_path TO elis_ms_pfvs,pg_catalog;
+ALTER ROLE elis_ms_epis_app_iam IN DATABASE elis_ms_pdfi SET search_path TO elis_ms_epis,pg_catalog;
+ALTER ROLE elis_ms_pdfi_ss_app_iam IN DATABASE elis_ms_pdfi SET search_path TO elis_ms_pdfi_ss,pg_catalog;
+ALTER ROLE elis_ms_pdfi_ps_app_iam IN DATABASE elis_ms_pdfi SET search_path TO elis_ms_pdfi_ps,pg_catalog;
+ALTER ROLE elis_ms_pdfi_lgs_app_iam IN DATABASE elis_ms_pdfi SET search_path TO elis_ms_pdfi_lgs,pg_catalog;
 -- grants
 GRANT USAGE ON SCHEMA elis_ms_pfvs TO elis_ms_pfvs, elis_ms_pfvs_read_role, elis_ms_pfvs_write_role;
 GRANT USAGE ON SCHEMA elis_ms_epis TO elis_ms_epis, elis_ms_epis_read_role, elis_ms_epis_write_role;
@@ -103,29 +101,29 @@ ALTER DEFAULT PRIVILEGES FOR ROLE elis_ms_pfvs IN SCHEMA elis_ms_pfvs GRANT SELE
 ALTER DEFAULT PRIVILEGES FOR ROLE elis_ms_pfvs IN SCHEMA elis_ms_pfvs GRANT SELECT ON TABLES TO elis_ms_pfvs_read_role;
 ALTER DEFAULT PRIVILEGES FOR ROLE elis_ms_pfvs IN SCHEMA elis_ms_pfvs GRANT SELECT ON SEQUENCES TO elis_ms_pfvs_read_role;
 ALTER DEFAULT PRIVILEGES FOR ROLE elis_ms_pfvs IN SCHEMA elis_ms_pfvs GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO elis_ms_pfvs_write_role;
-ALTER DEFAULT PRIVILEGES FOR ROLE elis_ms_pfvs IN SCHEMA elis_ms_pfvs GRANT SELECT ON SEQUENCES TO elis_ms_pfvs_write_role;
+ALTER DEFAULT PRIVILEGES FOR ROLE elis_ms_pfvs IN SCHEMA elis_ms_pfvs GRANT SELECT, USAGE ON SEQUENCES TO elis_ms_pfvs_write_role;
 ALTER DEFAULT PRIVILEGES FOR ROLE elis_ms_epis IN SCHEMA elis_ms_epis GRANT ALL ON TABLES TO elis_ms_epis;
 ALTER DEFAULT PRIVILEGES FOR ROLE elis_ms_epis IN SCHEMA elis_ms_epis GRANT SELECT, USAGE ON SEQUENCES TO elis_ms_epis;
 ALTER DEFAULT PRIVILEGES FOR ROLE elis_ms_epis IN SCHEMA elis_ms_epis GRANT SELECT ON TABLES TO elis_ms_epis_read_role;
 ALTER DEFAULT PRIVILEGES FOR ROLE elis_ms_epis IN SCHEMA elis_ms_epis GRANT SELECT ON SEQUENCES TO elis_ms_epis_read_role;
 ALTER DEFAULT PRIVILEGES FOR ROLE elis_ms_epis IN SCHEMA elis_ms_epis GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO elis_ms_epis_write_role;
-ALTER DEFAULT PRIVILEGES FOR ROLE elis_ms_epis IN SCHEMA elis_ms_epis GRANT SELECT ON SEQUENCES TO elis_ms_epis_write_role;
+ALTER DEFAULT PRIVILEGES FOR ROLE elis_ms_epis IN SCHEMA elis_ms_epis GRANT SELECT, USAGE ON SEQUENCES TO elis_ms_epis_write_role;
 ALTER DEFAULT PRIVILEGES FOR ROLE elis_ms_pdfi_ss IN SCHEMA elis_ms_pdfi_ss GRANT ALL ON TABLES TO elis_ms_pdfi_ss;
 ALTER DEFAULT PRIVILEGES FOR ROLE elis_ms_pdfi_ss IN SCHEMA elis_ms_pdfi_ss GRANT SELECT, USAGE ON SEQUENCES TO elis_ms_pdfi_ss;
 ALTER DEFAULT PRIVILEGES FOR ROLE elis_ms_pdfi_ss IN SCHEMA elis_ms_pdfi_ss GRANT SELECT ON TABLES TO elis_ms_pdfi_ss_read_role;
 ALTER DEFAULT PRIVILEGES FOR ROLE elis_ms_pdfi_ss IN SCHEMA elis_ms_pdfi_ss GRANT SELECT ON SEQUENCES TO elis_ms_pdfi_ss_read_role;
 ALTER DEFAULT PRIVILEGES FOR ROLE elis_ms_pdfi_ss IN SCHEMA elis_ms_pdfi_ss GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO elis_ms_pdfi_ss_write_role;
-ALTER DEFAULT PRIVILEGES FOR ROLE elis_ms_pdfi_ss IN SCHEMA elis_ms_pdfi_ss GRANT SELECT ON SEQUENCES TO elis_ms_pdfi_ss_write_role;
+ALTER DEFAULT PRIVILEGES FOR ROLE elis_ms_pdfi_ss IN SCHEMA elis_ms_pdfi_ss GRANT SELECT, USAGE ON SEQUENCES TO elis_ms_pdfi_ss_write_role;
 ALTER DEFAULT PRIVILEGES FOR ROLE elis_ms_pdfi_ps IN SCHEMA elis_ms_pdfi_ps GRANT ALL ON TABLES TO elis_ms_pdfi_ps;
 ALTER DEFAULT PRIVILEGES FOR ROLE elis_ms_pdfi_ps IN SCHEMA elis_ms_pdfi_ps GRANT SELECT, USAGE ON SEQUENCES TO elis_ms_pdfi_ps;
 ALTER DEFAULT PRIVILEGES FOR ROLE elis_ms_pdfi_ps IN SCHEMA elis_ms_pdfi_ps GRANT SELECT ON TABLES TO elis_ms_pdfi_ps_read_role;
 ALTER DEFAULT PRIVILEGES FOR ROLE elis_ms_pdfi_ps IN SCHEMA elis_ms_pdfi_ps GRANT SELECT ON SEQUENCES TO elis_ms_pdfi_ps_read_role;
 ALTER DEFAULT PRIVILEGES FOR ROLE elis_ms_pdfi_ps IN SCHEMA elis_ms_pdfi_ps GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO elis_ms_pdfi_ps_write_role;
-ALTER DEFAULT PRIVILEGES FOR ROLE elis_ms_pdfi_ps IN SCHEMA elis_ms_pdfi_ps GRANT SELECT ON SEQUENCES TO elis_ms_pdfi_ps_write_role;
+ALTER DEFAULT PRIVILEGES FOR ROLE elis_ms_pdfi_ps IN SCHEMA elis_ms_pdfi_ps GRANT SELECT, USAGE ON SEQUENCES TO elis_ms_pdfi_ps_write_role;
 ALTER DEFAULT PRIVILEGES FOR ROLE elis_ms_pdfi_lgs IN SCHEMA elis_ms_pdfi_lgs GRANT ALL ON TABLES TO elis_ms_pdfi_lgs;
 ALTER DEFAULT PRIVILEGES FOR ROLE elis_ms_pdfi_lgs IN SCHEMA elis_ms_pdfi_lgs GRANT SELECT, USAGE ON SEQUENCES TO elis_ms_pdfi_lgs;
 ALTER DEFAULT PRIVILEGES FOR ROLE elis_ms_pdfi_lgs IN SCHEMA elis_ms_pdfi_lgs GRANT SELECT ON TABLES TO elis_ms_pdfi_lgs_read_role;
 ALTER DEFAULT PRIVILEGES FOR ROLE elis_ms_pdfi_lgs IN SCHEMA elis_ms_pdfi_lgs GRANT SELECT ON SEQUENCES TO elis_ms_pdfi_lgs_read_role;
 ALTER DEFAULT PRIVILEGES FOR ROLE elis_ms_pdfi_lgs IN SCHEMA elis_ms_pdfi_lgs GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO elis_ms_pdfi_lgs_write_role;
-ALTER DEFAULT PRIVILEGES FOR ROLE elis_ms_pdfi_lgs IN SCHEMA elis_ms_pdfi_lgs GRANT SELECT ON SEQUENCES TO elis_ms_pdfi_lgs_write_role;
+ALTER DEFAULT PRIVILEGES FOR ROLE elis_ms_pdfi_lgs IN SCHEMA elis_ms_pdfi_lgs GRANT SELECT, USAGE ON SEQUENCES TO elis_ms_pdfi_lgs_write_role;
 
