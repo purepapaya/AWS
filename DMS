@@ -1,0 +1,2 @@
+python -c "import pyarrow.parquet as pq; print(pq.ParquetFile('/tmp/file.parquet').schema_arrow)"
+aws s3 cp s3://my-bucket/path/file.parquet /tmp/file.parquet
