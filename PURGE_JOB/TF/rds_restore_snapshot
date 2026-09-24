@@ -52,3 +52,64 @@ resource "aws_db_instance" "rdspcom1r_oracle_instance" {
   }
   tags = merge(local.db_instance_tags)
 }
+
+-- point-in-time restore
+# This example restores cv2 to a new recovery db cr04
+# Read through comments and replace cv2 with the appropriate source database
+
+# change the resource name here ---\/
+resource "aws_db_instance" "cr4_oracle_instance" {
+# make unique
+  identifier                          = "aue1cr04"
+
+# add this section with a UTC timestamp for the restore point
+# remember to point to the correct source db to restore from
+  restore_to_point_in_time {
+    restore_time                  = "2024-11-14T17:10:00Z"
+    source_db_instance_identifier = var.cv2_db_hostname
+    source_dbi_resource_id        = null
+  }
+
+# match from source db
+  # keep db_name the same to prevent read-only tablespace issues with restore
+  db_name                             = var.cv2_instance_name
+  allocated_storage                   = var.cv2_allocated_storage
+  max_allocated_storage               = var.cv2_max_allocated_storage
+  parameter_group_name                = module.cv2_oracle_parameter_group.id
+  instance_class                      = var.instance_type 
+  username                            = var.db_username
+  password                            = jsondecode(data.aws_secretsmanager_secret_version.rds_oracle_galileo.secret_string)["CV2_RDS_MASTER_PASSWORD"]
+  storage_type                        = var.cv2_storage_type
+  iops                                = var.cv2_iops
+  tags                                = merge(local.db_instance_tags, { customer-name = "multi", service-name = var.cv2_instance_name })
+    
+# add this additional setting and remove final snapshot identifier
+  skip_final_snapshot                 = true
+  deletion_protection                 = false
+  
+# set multi_az to false
+  multi_az                            = false
+
+# standard params
+  engine                              = var.engine
+  engine_version                      = var.engine_version
+  allow_major_version_upgrade         = var.allow_major_version_upgrade
+  auto_minor_version_upgrade          = var.allow_minor_version_upgrade
+  license_model                       = var.license_model
+  port                                = var.db_port
+  iam_database_authentication_enabled = var.iam_database_authentication
+  publicly_accessible                 = var.publicly_accessible
+  vpc_security_group_ids              = [aws_security_group.allow_oracle.id]
+  maintenance_window                  = var.maintenance_window
+  backup_window                       = var.backup_window
+  backup_retention_period             = var.backup_retention_period
+  db_subnet_group_name                = aws_db_subnet_group.rds_subnet_group.id
+  apply_immediately                   = var.apply_immediately
+  option_group_name                   = aws_db_option_group.oracle_ee_19_option_group.id
+  storage_encrypted                   = true
+  kms_key_id                          = "arn:aws:kms:us-east-1:371338459440:key/b24bbed2-795e-434e-9349-3464f7a1316b"
+  enabled_cloudwatch_logs_exports     = var.enabled_cloudwatch_logs_exports
+  character_set_name  = var.charsetname
+  ca_cert_identifier  = var.ca_cert_identifier
+
+}
