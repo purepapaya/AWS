@@ -1,0 +1,17 @@
+-- run_dryrun.sql
+set serveroutput on
+exec DBMAINT.purge_storedproc_logs(1);
+
+-- run_manual.sql
+set serveroutput on
+set timing on time on
+spool cv3.log
+exec DBMAINT.purge_storedproc_logs(0);
+spool off
+
+-- run_report.sql
+set markup csv on
+select * from DBMAINT.PURGE_LOG where action in ('RUN_START','RUN_END','TABLE_OVER_THRESHOLD') order by log_ts;
+select * from DBMAINT.PURGE_LOG where run_id=(select max(run_id) from DBMAINT.PURGE_LOG) order by log_ts;
+
+--
