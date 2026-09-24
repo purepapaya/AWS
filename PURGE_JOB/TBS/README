@@ -1,0 +1,30 @@
+-- dryrun
+SET SERVEROUTPUT ON
+
+-- dryrun
+EXEC DBMAINT.tbs_manager.check_and_extend_tbs(1);
+
+-- run
+EXEC DBMAINT.tbs_manager.check_and_extend_tbs(0);
+
+-- check log
+select * from DBMAINT.tbs_growth_log order by log_date;
+
+-- run job
+begin
+   DBMS_SCHEDULER.set_job_argument_value(
+        job_name => 'DBMAINT.TBS_MAINTENANCE_JOB',
+        argument_position => 1,
+        argument_value => '0');
+end;
+/
+
+--  DBMS_SCHEDULER.set_attribute(
+--      name  => 'DBMAINT.TBS_MAINTENANCE_JOB',
+--      attribute => 'repeat_interval',
+--      value => 'FREQ=DAILY; BYHOUR=7; BYMINUTE=0; BYSECOND=0; TZ=America/Los_Angeles'
+--  );
+
+exec DBMS_SCHEDULER.drop_job ('DBMAINT.TBS_MAINTENANCE_JOB');
+
+exec DBMS_SCHEDULER.run_job ('DBMAINT.TBS_MAINTENANCE_JOB');
