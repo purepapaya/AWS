@@ -1,0 +1,79 @@
+1. Prepare target RDS
+2. Export source roles/users
+3. Restore roles/users to target
+4. Dump db1
+5. Dump db2
+6. Create db1/db2 on target
+7. Restore db1
+8. Restore db2
+9. Verify ownership + permissions
+10. Cut application over
+
+pg_dumpall \
+  -h SOURCE_HOST \
+  -U SOURCE_ADMIN \
+  --globals-only \
+  --no-tablespaces \
+  --file=globals.sql
+
+psql \
+  -h TARGET_HOST \
+  -U TARGET_ADMIN \
+  -d postgres \
+  -f globals.sql
+
+pg_dump \
+  -h SOURCE_HOST \
+  -U SOURCE_ADMIN \
+  -d db1 \
+  -Fc \
+  -b \
+  -v \
+  -f db1.dump
+
+CREATE DATABASE db1 OWNER app_user;
+CREATE DATABASE db2 OWNER app_user;
+
+pg_restore \
+  -h TARGET_HOST \
+  -U TARGET_ADMIN \
+  -d db1 \
+  -v \
+  -j 4 \
+  db1.dump
+
+verify: \du \l+ \dx
+SELECT
+    n.nspname AS schema_name,
+    pg_get_userbyid(n.nspowner) AS owner
+FROM pg_namespace n
+ORDER BY n.nspname;
+
+SELECT
+    schemaname,
+    tablename,
+    tableowner
+FROM pg_tables
+ORDER BY schemaname, tablename;
+
+SELECT
+    grantee,
+    table_schema,
+    table_name,
+    privilege_type
+FROM information_schema.role_table_grants
+ORDER BY grantee, table_schema, table_name;
+
+SELECT
+    extname,
+    extversion
+FROM pg_extension
+ORDER BY extname;
+
+vacuumdb \
+  -h TARGET_HOST \
+  -U TARGET_ADMIN \
+  -d db1 \
+  --analyze
+
+
