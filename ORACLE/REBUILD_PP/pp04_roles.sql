@@ -1,0 +1,14 @@
+create role ACT_READ_ROLE;
+create role ACT_WRITE_ROLE;
+create role E2_READ_ROLE;
+create role EL2CODE_READ_ROLE;
+create role EL2CODE_WRITE_ROLE;
+create role EL2USER_READ_ROLE;
+create role EL2USER_WRITE_ROLE;
+create role EL2_READ_ROLE;
+create role EL2_UPD_SYS_STUS_ROLE;
+create role EL2_WRITE_ROLE;
+create role ELIS_TENABLE_SCAN_ROLE;
+create role SPLUNK_AUDIT_ROLE;
+create role TENABLE_USER_ROLE;
+create role TENABLE_VAULT_ROLE;

@@ -1,0 +1,42 @@
+15:42:50 SQL> EXEC rdsadmin.rdsadmin_util.set_configuration('RESOURCE_MANAGER_PLAN', '');
+0 rows updated
+
+PL/SQL procedure successfully completed.
+
+Elapsed: 00:00:00.35
+15:42:50 SQL> EXEC DBMS_STATS.GATHER_SCHEMA_STATS('ACTIVITICODEDEVELOP');
+
+PL/SQL procedure successfully completed.
+
+Elapsed: 00:00:00.53
+15:42:51 SQL> EXEC DBMS_STATS.GATHER_SCHEMA_STATS('ACTIVITIDATADEVELOP');
+
+PL/SQL procedure successfully completed.
+
+Elapsed: 00:06:33.56
+15:49:24 SQL> EXEC DBMS_STATS.GATHER_SCHEMA_STATS('ACTIVITIUSERDEVELOP');
+
+PL/SQL procedure successfully completed.
+
+Elapsed: 00:00:00.35
+15:49:25 SQL> EXEC DBMS_STATS.GATHER_SCHEMA_STATS('ELIS2CODEDEVELOP');
+
+PL/SQL procedure successfully completed.
+
+Elapsed: 00:00:07.60
+15:49:32 SQL> EXEC DBMS_STATS.GATHER_SCHEMA_STATS('ELIS2DATADEVELOP');
+
+PL/SQL procedure successfully completed.
+
+Elapsed: 00:15:09.66
+16:04:42 SQL> EXEC DBMS_STATS.GATHER_SCHEMA_STATS('ELIS2USERDEVELOP');
+
+PL/SQL procedure successfully completed.
+
+Elapsed: 00:00:00.57
+16:04:42 SQL> EXEC DBMS_STATS.GATHER_SCHEMA_STATS('ELIS2_LB_ADMIN');
+
+PL/SQL procedure successfully completed.
+
+Elapsed: 00:00:00.31
+16:04:43 SQL> spool off

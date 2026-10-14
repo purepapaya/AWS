@@ -1,0 +1,140 @@
+STEP1: create new db, add dblink on old db
+===========================================
+instance name: new-pp-idb1
+Instance type: db.r5.xlarge 4 vCPU 32GB RAM
+gp3 200GB 12000 IOPS max 500GB
+VPC ID : vpc-c0b179a5 
+DB Subnet group: dbsg-1
+Security group: ESB-CPMS-SS-RDS-PP-SG,eCiscor Team Security Group, from-IDPaaS, from-SMART, oracle-from-all
+certificate authority: rds-ca-rsa2048-g1 (default)
+database port: 1521
+Database insige standard
+DB parameter group: elis-oracle-19c-pg
+Option group: el2-pp-19c-og-no-tde
+DB name: ELIS2
+master: MDA5Nzg1OG_UwZGZkN2U0_ZmZlMjY3
+
+Estimated monthly costs
+DB instance 340.18 USD
+Storage 23.00 USD
+Total 363.18 USD
+
+Tags:
+DB_ENV pp
+ECS:Environment PreProd
+OLD Name: el2-pp-idb1-4TB
+DBA_Email Michael.Abromavage@uscis.dhs.gov:kamalakannan.venugopal@uscis.dhs.gov:yucheng.liu@uscis.dhs.gov
+Description ELIS InternalApp DB
+ECS:Environment pp
+ECS:Scheduler:rds-startstop none
+ECS:ServerFunction ORACLE_DB
+ECS:System Elis/Elis2
+NEW Name el2-pp-idb1
+
+new-pp-idb1.cn5xvvvwfskn.us-east-1.rds.amazonaws.com
+el2-pp-idb1.cn5xvvvwfskn.us-east-1.rds.amazonaws.com
+
+create database link new_dblink connect to master identified by "MDA5Nzg1OG_UwZGZkN2U0_ZmZlMjY3" using '(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=new-pp-idb1.cn5xvvvwfskn.us-east-1.rds.amazonaws.com)(PORT = 1521))(CONNECT_DATA=(SERVICE_NAME=ELIS2)))';
+
+STEP2: create tbs, functions, profiles, roles, users, tbs quota on new db
+===========================================
+set pagesize 0 linesize 500 trimspool on
+spool pp01_tbs.sql
+select 'create tablespace '||tablespace_name||' datafile size 20M autoextend on maxsize unlimited;'
+from (select tablespace_name from dba_tablespaces minus select tablespace_name from dba_tablespaces@new_dblink)
+where tablespace_name not in ('UNDO','GGADM');
+spool off
+
+spool pp03_profiles.sql
+select dbms_metadata.get_ddl('PROFILE',profile) from (select profile from dba_profiles minus select profile from dba_profiles@new_dblink);
+spool off
+
+functions used by profiles:
+!grep FUNCTION pt03_profiles.sql |awk '{print $2}'|sort -u
+"CIS_VERIFY_FUNCTION_SRVCACCT"
+"CIS_VERIFY_FUNCTION"
+"ELIS_PASSWORD_VERIFY_FUNCTION"
+<    db_name varchar2(128);
+>    db_name v$database.name%type;
+<    IF NOT sys.ora_complexity_check
+>    IF NOT ora_complexity_check
+<     differ := sys.ora_string_distance
+>     differ := ora_string_distance
+begin
+    rdsadmin.rdsadmin_password_verify.create_passthrough_verify_fcn(
+        p_verify_function_name => 'CIS_VERIFY_FUNCTION', 
+        p_target_owner         => 'MASTER',
+        p_target_function_name => 'CIS_VERIFY_FUNCTION');
+end;
+/
+
+roles:
+spool pp04_roles.sql
+select 'create role '||role||';' from (select role from dba_roles minus select role from dba_roles@new_dblink);
+spool off
+
+users:
+spool pp05_users.sql
+select dbms_metadata.get_ddl('USER',username) from (select username from dba_users where (account_status='OPEN' or last_login > sysdate-300) minus select username from dba_users@new_dblink);
+spool off
+
+spool pp06_tbs_quota.sql
+select 'alter user '||username||' quota unlimited on '||tablespace_name||';' from dba_ts_quotas
+where username in (select username from dba_users where (account_status='OPEN' or last_login > sysdate-300) minus select username from dba_users@new_dblink)
+order by username;
+spool off
+
+
+STEP3: export on old db, transfer dump to new db, import on new db
+===================================================================
+BEGIN
+    FOR i IN (SELECT filename FROM TABLE(rdsadmin.rds_file_util.listdir('DATA_PUMP_DIR')) WHERE type='file')
+    LOOP
+        UTL_FILE.FREMOVE('DATA_PUMP_DIR', i.filename);
+    END LOOP;
+END;
+/
+
+select ''''''||username||''''','  from dba_users where (account_status='OPEN' or last_login > sysdate-300) 
+and username not in ('SYS','SYSTEM','RDSADMIN','ORACLE_OCM','DBSNMP','MASTER') order by 1;
+select listagg(username,''''',''''') from dba_users where (account_status='OPEN' or last_login > sysdate-300) 
+and username not in ('SYS','SYSTEM','RDSADMIN','ORACLE_OCM','DBSNMP','MASTER') order by 1;
+''ELIS_MS_WORK_MGMT'',''ELIS_MS_LB'',''NTVAN'',''ELIS_MS_JRS'',''PC_ELIS2'',''ELIS_MS_ELIS_QUERY'',''ELIS_MS_ETS'',''ELIS_MS_DMS_EXPLORER'',''ACTIVITIUSERDEVELOP'',''ELIS2USERDEVELOP'',''ELIS_MS_OFF_REC_DOC_GEN'',''SAHOSSEI'',''ELIS_MS_IDRES'',''ELIS_MS_DVS'',''ORAMON'',''ELIS_MS_DIG_EVD_VIEWER'',''ELIS_MS_CRU'',''ELIS2_LB_ADMIN'',''ELIS2DATADEVELOP'',''ELIS_MS_ERDS'',''ELIS_MS_CDDS'',''ACTIVITIDATADEVELOP'',''ELIS2CODEDEVELOP'',''ACTIVITICODEDEVELOP'',''JRWINSTE'',''ACALCAMO'',''ECHAN1'',''PJGIFFIN'',''MJBUCHMA'',''CSJACOBS'',''TSGANDHO'',''JDAYRES'',''SAHMED1'',''MRANJBAR'',''RPARAMAS'',''JCHEUNG1'',''TGROBERS'',''DMBELYEA'',''GABOGNAR'',''BSAXENA'',''DDKIM'',''JGARCIAR'',''KVCHAGAN'',''DJKRAMER'',''BADAVIS'',''MAWILLIA'',''RLBILYEU'',''MABROMAV'',''YYOON'',''TQIU'',''CKGARCIA'',''SNKRANKI'',''WCHEN1'',''DRSCHUMA'',''SPMCCALL'',''KRNEELEY'',''RCREDDY'',''JMKHANAN'',''JRLO'',''MKLEIN'',''CYGAW'',''BMBISSET'',''MSBAUER'',''LPSCHARE'',''GKBRYANT'',''BDRICKS'',''MAPALITT'',''JRGILL'',''DMGOLLHA'',''JARUSSEL'',''EDFRANKL'',''NRJACKSO'',''HRSHAH1'',''HVARDHA'',''KWGYOVAI'',''LRNATHAN'',''CPGOETTE'',''JPEDDY'',''JKKALYAN'',''MAHMED'',''YYLUK'',''TABROADN'',''RTMCNISH'',''CCGRAVES'',''MEFUENTE'',''WSHI'',''EAZHU'',''JWLUO'',''MLKUNIAN'',''GDELIYA'',''JMGIONFR'',''SAHMED3'',''EYALVIAL'',''GGMCDONN'',''NBSHREST'',''JBHAMRIC'',''RATURKMA'',''ADBERTEL'',''WHBERHE'',''DQTEAGUE'',''CSANUNKO'',''LCHELLER'',''NABRADY'',''CJWILSON'',''OCTIEDEM'',''AMPATRIC'',''CWFISCHE'',''SKWOK'',''TMNGUYE1'',''JATHOMAS'',''JDBOGGS'',''ALULCIUC'',''YLIU'',''TNKOONTZ'',''CRHUMPHR'',''CJSULLI1'',''KIMALIK'',''EDNAVAR'',''ELIS_MS_ELP'',''AKFRYER'',''RDHANDA'',''ALNGUYEN'',''MTARAQ'',''JMLEAHY'',''VAULTADMIN'',''KVENUGOP'',''BHUANG'',''SCSIM'',''EBWAKTOL'',''SSKWON'',''TJRANDOL'',''CENEWSOM'',''ELIS_MS_EICP'',''PCHAU'',''HTTRANG'',''JDHUBBAR'',''HZHOU1'',''JEBILBRO'',''SPLUNKAUD'',''SSHARMA4'',''MYTARK'',''BCMADSEN'',''AGGEBREL'',''ALMONGER'',''EAHYNDMA'',''MDLAPUZ'',''JSCORY'',''BNGUYEN'',''ARAHMAN'',''JFWANG'',''CMOMEILI'',''BCLEMON'',''ELIS_MS_PFVS'',''WHKUEH'',''FJGLAESE'',''CISSCAN'',''CNTANG'',''SIBRAHI1'',''CAMANIBU'',''JAYAMADA'',''MAKWIATK'',''PRHARDIN'',''EJONES'',''NJWARZIN'',''CAJUDD'',''RVRAMIRE'',''TBFIKADU'',''MROZENTS'',''SMAO'',''RTNGO'',''MHTEKLEZ'',''AISLAM'',''GHEISBRU'',''AJKAMIEN''
+
+set long 50000 linesize 500 trimspool on pagesize 0
+select * from table(rdsadmin.rds_file_util.listdir('DATA_PUMP_DIR')) order by mtime;
+
+select sum(filesize)/1024/1024/1024 FS_IN_GB from TABLE(rdsadmin.rds_file_util.listdir('DATA_PUMP_DIR')) where filename like 'EXP%.dmp';
+
+set long 50000 linesize 500 trimspool on pagesize 0
+select * from table(rdsadmin.rds_file_util.listdir('DATA_PUMP_DIR')) order by mtime;
+select text from table(rdsadmin.rds_file_util.read_text_file('DATA_PUMP_DIR', 'IMP_20260722190550.log'));
+
+SELECT text 
+FROM (
+    SELECT text, ROW_NUMBER() OVER (ORDER BY ROWNUM DESC) as row_seq
+    FROM table(rdsadmin.rds_file_util.read_text_file('DATA_PUMP_DIR', 'IMP_20260722190550.log'))
+)
+WHERE row_seq <= 100
+ORDER BY row_seq DESC;
+
+DOWNTIME
+================================================================
+trn> @pp07_exp.sql
+Dump file set for YLIU.EXP_2026072418 is:
+  /rdsdbdata/datapump/EXP_2026072418_01.dmp
+Job "YLIU"."EXP_2026072418" successfully completed at Fri Jul 24 18:46:12 2026 elapsed 0 00:02:37
+.352180481 GB
+Dump file set for YLIU.EXP_2026072522 is:
+  /rdsdbdata/datapump/EXP_2026072522_01.dmp
+Job "YLIU"."EXP_2026072522" successfully completed at Sat Jul 25 22:40:27 2026 elapsed 0 00:02:12
+
+pp> @pp08_transfer.sql
+Elapsed: 00:00:01.18
+
+newpp> @pp09_imp.sql (edit)
+newpp> @pp10_stats.sql
+newpp> EXEC SYS.UTL_RECOMP.RECOMP_PARALLEL(4);
+newpp> check_valid
+ pp11_validate.sql
+
