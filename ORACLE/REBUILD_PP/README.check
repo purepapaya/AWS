@@ -1,0 +1,27 @@
+set pagesize 0 linesize 500 trimspool on
+select sum(filesize)/1024/1024/1024 FS_IN_GB from TABLE(rdsadmin.rds_file_util.listdir('DATA_PUMP_DIR')) where filename like 'EXP%.dmp';
+
+SELECT text
+FROM (
+    SELECT text, ROW_NUMBER() OVER (ORDER BY ROWNUM DESC) as row_seq
+    FROM table(rdsadmin.rds_file_util.read_text_file('DATA_PUMP_DIR', 'EXP_2026081321.log'))
+)
+WHERE row_seq <= 100 ORDER BY row_seq DESC;
+
+--select * from table(rdsadmin.rds_file_util.listdir('DATA_PUMP_DIR')) order by mtime;
+--select text from table(rdsadmin.rds_file_util.read_text_file('DATA_PUMP_DIR', 'IMP_20260725224400.log'));
+
+...skipping...
+SELECT text
+FROM (
+    SELECT text, ROW_NUMBER() OVER (ORDER BY ROWNUM DESC) as row_seq
+    FROM table(rdsadmin.rds_file_util.read_text_file('DATA_PUMP_DIR', 'IMP_20260813213121.log'))
+)
+WHERE row_seq <= 100 ORDER BY row_seq DESC;
+
+set pagesize 0 linesize 500 trimspool on
+--select * from table(rdsadmin.rds_file_util.listdir('DATA_PUMP_DIR')) order by mtime;
+--select sum(filesize)/1024/1024/1024 FS_IN_GB from TABLE(rdsadmin.rds_file_util.listdir('DATA_PUMP_DIR')) where filename like 'EXP%.dmp';
+--select text from table(rdsadmin.rds_file_util.read_text_file('DATA_PUMP_DIR', 'IMP_20260813213121.log')) where text like '%ORA-%';
+
+--SELECT text from table(rdsadmin.rds_file_util.read_text_file('DATA_PUMP_DIR', 'IMP_20260813213121.log')) where text like 'GRANT%';
