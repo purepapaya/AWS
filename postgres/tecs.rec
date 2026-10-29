@@ -1,0 +1,219 @@
+RDS PostgreSQL log analysis
+I analyzed the uploaded temp.log file (about 51 MB, covering October 29, 2026). The main concerns are very long-running SQL statements, repeated permission errors, a possible connection/probing issue, and a deadlock.
+
+The log contains 77 ERROR entries and 23 FATAL entries. These counts do not necessarily represent 100 separate application incidents; some errors are repeated or may come from monitoring tools.
+1. Summary of issues
+Critical performance concern: very long-running queries
+
+Some statements took tens of minutes to over an hour to complete. The longest recorded duration was about 1 hour 49 minutes.
+
+
+
+55 permission errors
+
+Applications repeatedly received permission-denied errors when calling an RDS-related function.
+
+
+
+Connection failures and unexpected protocol requests
+
+Client connections were lost, and one source repeatedly sent invalid PostgreSQL protocol requests.
+
+
+
+Deadlock and canceled statements
+
+At least one deadlock was detected, and several statements were canceled at the client's request.
+
+
+
+2. Long-running SQL — highest priority
+The most concerning entries involve queries run by elis_ms_tecs_check_backend.
+Duration	SQL operation
+1 hr 49 min 36 sec	Select pending requests with no unsuccessful queries
+1 hr 43 min 5 sec	Same pending-request query
+1 hr 38 min 42 sec	Count pending callbacks older than 45 minutes
+1 hr 37 min 9 sec	Count pending callbacks older than 45 minutes
+29–33 minutes	Other pending-request and callback queries
+
+These are reported execution durations in the PostgreSQL log, not estimates. temp.log
+
+Why these queries are concerning
+One recurring query is:
+SELECT
+    tr1_0.tecs_req_id,
+    tr1_0.chk_exprd_dspstn,
+    tr1_0.crted_dttm,
+    tr1_0.crted_usrid,
+    tr1_0.frm_typ,
+    tr1_0.loc_cd,
+    tr1_0.orig_loc_cd,
+    tr1_0.rcpt_num,
+    tr1_0.req_callbk_stus_cd,
+    tr1_0.req_txt,
+    tr1_0.req_stus_cd,
+    tr1_0.req_dttm,
+    tr1_0.rqstng_sys_cd,
+    tr1_0.rqstng_sys_ref_id,
+    tr1_0.rqstng_usr_id,
+    tr1_0.updtd_dttm,
+    tr1_0.updtd_usrid
+FROM tecs_req tr1_0
+WHERE tr1_0.req_stus_cd = 'PENDING'
+  AND NOT EXISTS (
+      SELECT 1
+      FROM tecs_query tq1_0
+      WHERE tq1_0.tecs_req_id = tr1_0.tecs_req_id
+        AND tq1_0.query_stus_cd <> 'SUCCESS'
+  );
+
+
+Potential causes include:
+- Missing or ineffective indexes on tecs_req.req_stus_cd, tecs_query.tecs_req_id, or tecs_query.query_stus_cd.
+- Large tables or substantial numbers of pending requests.
+- A query plan that scans too many rows.
+- Resource contention or blocking.
+- Application workers running the same expensive queries concurrently.
+These are hypotheses; the log alone does not establish which one is responsible.
+Recommended investigation
+Run the following in the elis_ms_tecs database:
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT tr.tecs_req_id
+FROM tecs_req tr
+WHERE tr.req_stus_cd = 'PENDING'
+  AND NOT EXISTS (
+      SELECT 1
+      FROM tecs_query tq
+      WHERE tq.tecs_req_id = tr.tecs_req_id
+        AND tq.query_stus_cd <> 'SUCCESS'
+  );
+
+
+Caution: EXPLAIN ANALYZE executes the query. Test it in a controlled environment or during an approved diagnostic window, because this query appears to have taken a very long time in production.
+
+Also check existing indexes before creating new ones:
+SELECT
+    schemaname,
+    tablename,
+    indexname,
+    indexdef
+FROM pg_indexes
+WHERE schemaname = 'elis_ms_tecs'
+  AND tablename IN ('tecs_req', 'tecs_query')
+ORDER BY tablename, indexname;
+
+
+A possible index to evaluate, depending on the actual execution plan and data distribution, is:
+CREATE INDEX CONCURRENTLY idx_tecs_req_pending
+ON elis_ms_tecs.tecs_req (tecs_req_id)
+WHERE req_stus_cd = 'PENDING';
+
+
+Do not create this index blindly: it may not address the dominant cost, and CREATE INDEX CONCURRENTLY still consumes resources.
+3. Repeated permission errors — 55 occurrences
+The log repeatedly reports:
+ERROR: 42501: permission denied for function
+multi_az_db_cluster_source_dbi_resource_id
+
+
+The errors occur under multiple application roles, including IAM-related and regular application accounts. temp.log
+
+Likely explanation
+This is an RDS-related function associated with Multi-AZ DB cluster information. An application, monitoring check, or database-discovery component is attempting to call it without sufficient privileges.
+
+Recommended actions:
+1. Identify which SQL statement or monitoring check invokes this function.
+2. Confirm whether the application actually needs the function's result.
+3. If it is an expected monitoring operation, check AWS's supported permissions for your RDS PostgreSQL engine version.
+4. If the function is not needed by the application, remove or correct the call rather than granting broader permissions.
+Do not grant blanket privileges on RDS internal objects. The right fix depends on the caller and the purpose of the query.
+4. Unexpected protocol requests from one source
+At approximately 10:10:37 UTC, the log contains repeated failures from 10.103.141.170:
+FATAL: 08P01: client selected an invalid SASL authentication mechanism
+
+FATAL: 0A000: unsupported frontend protocol 2.0:
+server supports 3.0 to 3.0
+
+
+There are also repeated invalid protocol requests from the same address later in the log. temp.log
+
+
+The client identifier in one of these entries includes:
+postgresql_ldap_auth_bypass.nasl
+
+
+That name suggests a vulnerability-scanning or security-testing tool rather than an ordinary application connection. The log alone cannot confirm whether this was an authorized scan.
+
+Recommended actions:
+- Ask your security team whether a vulnerability scan was running at that time.
+- Identify the source IP using your VPC Flow Logs, firewall logs, or security tooling.
+- If the traffic is authorized, confirm that the scanner is configured for PostgreSQL's supported protocol.
+- If it is unexpected, investigate the source and review your network access controls.
+These messages do not, by themselves, demonstrate a successful intrusion.
+5. Deadlock detected
+One entry reports:
+ERROR: 40P01: deadlock detected
+
+
+A deadlock occurs when transactions hold locks that the other transactions need, creating a circular wait. PostgreSQL detects the cycle and aborts one transaction to allow the others to proceed. temp.log
+
+
+Recommended actions:
+- Retrieve the full log context around the deadlock, including the DETAIL section, if available.
+- Identify the SQL statements and tables involved.
+- Review transaction ordering and transaction duration.
+- Check whether the application retries transactions that fail with SQLSTATE 40P01.
+A single deadlock is not necessarily a database-wide problem. Repeated deadlocks affecting the same tables or application workflow would warrant a deeper fix.
+6. Other errors worth addressing
+Log message	Count	Interpretation and action
+connection to client lost	6	Could be application disconnects, network interruptions, or client timeouts. Correlate with application and network logs.
+terminating connection due to administrator command	3	A session was terminated by an administrative action. Check whether a maintenance operation, failover, or manual termination occurred.
+canceling statement due to user request	7	Statements were canceled. Determine whether these were application timeouts or deliberate cancellations.
+permission denied for table pg_authid	2	A process tried to read PostgreSQL's protected role catalog. Use supported role-management interfaces instead of granting direct access to this system catalog.
+role "rblakshm" cannot be dropped because some objects depend on it	7	A role cleanup operation failed because the role still owns or has privileges on dependent objects. Inspect dependencies before using DROP OWNED or transferring ownership.
+relation "roletree" does not exist	2	A query referenced a missing relation, possibly due to an incomplete diagnostic script or incorrect search path.
+prepared statement "my_diagnostic_plan" already exists	1	A prepared statement was created twice in the same session. Check statement lifecycle and connection-pool behavior.
+
+temp.log
+7. Repeated queries fetching 10,000 rows
+The log also shows repeated operations like:
+duration: 2394.648 ms
+statement: fetch 10000 in "SQL_CUR0x1535a411d9c0"
+
+
+I counted 43 such fetch operations taking at least 10 seconds in total duration per logged operation threshold analysis, with individual fetches commonly taking a few seconds. temp.log
+
+
+These may be normal batch processing, but they are worth checking if they coincide with application slowdowns. Review the batch size, query plan behind the cursor, and whether the application really needs to fetch all 10,000 rows at a time.
+Recommended order of work
+1
+
+Investigate the long-running SQL first
+
+Obtain EXPLAIN (ANALYZE, BUFFERS) results safely, inspect indexes and table statistics, and check CloudWatch CPU, read/write IOPS, latency, freeable memory, and database load.
+
+
+2
+
+Resolve the repeated permission errors
+
+Identify the caller of multi_az_db_cluster_source_dbi_resource_id and determine whether the operation is required.
+
+
+3
+
+Verify the unexpected connection traffic
+
+Confirm whether the protocol requests came from an authorized vulnerability scan.
+
+
+4
+
+Review deadlocks, cancellations, and connection stability
+
+Correlate timestamps with application errors, timeouts, deployment events, and RDS events.
+
+
+
+My overall assessment
+The long-running queries are the biggest performance concern in this log. The repeated permission errors are the most frequent explicit SQL errors, while the protocol failures deserve a security-context check.
