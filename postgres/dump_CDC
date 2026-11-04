@@ -1,0 +1,48 @@
+  0. Prerequisites on instance A
+  - rds.logical_replication = 1, which needs a reboot on RDS.
+  - The DMS user has rds_replication.
+  - TABLE_A has a primary key, or REPLICA IDENTITY FULL, so updates and deletes can be replicated.
+  
+  1. Create the slot and export the snapshot. Use a replication connection and keep this session open until the dump finishes, because the snapshot only exists while it's open.
+  psql "host=A dbname=mydb user=dms_user replication=database"
+  -- PG15+ syntax; on PG14 and older: CREATE_REPLICATION_SLOT dms_slot LOGICAL test_decoding EXPORT_SNAPSHOT;
+  CREATE_REPLICATION_SLOT dms_slot LOGICAL test_decoding (SNAPSHOT 'export');
+  --  slot_name | consistent_point | snapshot_name       | output_plugin
+  --  dms_slot  | 3A/7F0012C8      | 00000003-0000001B-1 | test_decoding
+  Write down consistent_point and snapshot_name. Use whichever decoding plugin your DMS version supports; test_decoding is DMS's default, and pglogical also works.
+
+  2. Dump using that snapshot, from a second terminal while session 1 stays open:
+  pg_dump -h A -d mydb -t TABLE_A -Fd -f /dump/table_a --snapshot=00000003-0000001B-1
+
+  3. Restore into instance B, then rename:
+  pg_restore -h B -d mydb -j 8 /dump/table_a
+  psql -h B -d mydb -c 'ALTER TABLE table_a RENAME TO table_b;'
+  Alternatively, restore it as TABLE_A and let a DMS table-mapping rename rule map it to TABLE_B. pg_restore creates the indexes after loading the data, which is the fast order.
+
+  4. Close session 1, the one holding the snapshot. The slot remains.
+
+  5. Create the DMS task:
+  - Migration type: "Replicate data changes only" (CDC only).
+  - CDC start position: the consistent_point LSN (e.g. 3A/7F0012C8).
+  - Source endpoint extra connection attribute: slotName=dms_slot, so DMS uses your slot instead of creating its own.
+  - Table mapping: include TABLE_A, plus the rename rule if you used one. 
+  - Target table preparation mode: "Do nothing", so DMS doesn't drop or truncate the data you restored.
+  
+  Things to watch
+
+  - WAL piles up on A while you're doing this. From the moment the slot exists, A keeps all WAL until DMS consumes it, including during the dump and restore. Make sure A has disk
+    headroom and watch it:
+  SELECT slot_name, pg_size_pretty(pg_wal_lsn_diff(pg_current_wal_lsn(), restart_lsn)) AS retained
+  FROM pg_replication_slots WHERE slot_name = 'dms_slot';
+    If you abandon the attempt, drop the slot (SELECT pg_drop_replication_slot('dms_slot');), or WAL will keep growing until the disk fills.
+  - pg_dump -j doesn't parallelize a single table. Parallelism works across tables, so one 214M-row table dumps on one thread. For more speed, run several COPY (SELECT ... WHERE id 
+    BETWEEN x AND y) TO ... sessions in parallel. Have each session run BEGIN ISOLATION LEVEL REPEATABLE READ; SET TRANSACTION SNAPSHOT '00000003-0000001B-1'; first, so they all read
+    the same snapshot.
+  - If you can't use an exported snapshot, there's a fallback. Record pg_current_wal_lsn() just before starting the dump and start CDC from that LSN. Then set DMS error handling to
+    ApplyErrorInsertPolicy=INSERT_RECORD and ApplyErrorUpdatePolicy=UPDATE_RECORD, so changes that overlap the dump get applied as upserts. This requires a primary key, and the
+    exported-snapshot method is cleaner.
+  - Check the result after CDC catches up (CDC latency near 0): compare row counts, or checksums over key ranges, between TABLE_A and TABLE_B.
+
+  If this is the 214M-row table from earlier, a dump-and-restore with indexes built afterward should take hours rather than about 15 days. DMS's own full load can also be sped up
+  with parallel-load range segmentation in table settings, if you'd rather stay entirely within DMS.
+
