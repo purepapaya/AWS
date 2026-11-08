@@ -60,4 +60,39 @@ CREATE TYPE elis_ms_tecs.tecs_sys_typ AS ENUM (
     'NCIC'
 );
 
+The statement shown is valid for the column you'd expect: tecs_sys_cd='SQ11' is a label of tecs_sys_typ. The error says the value was an empty string, "". So the empty value isn't
+  coming from tecs_sys_cd in this SET list. Check these, in order of likelihood:
+
+  1. Another column uses the same enum
+  SELECT table_schema, table_name, column_name, udt_name
+  FROM information_schema.columns
+  WHERE udt_name = 'tecs_sys_typ';
+  If this returns a column other than tecs_sys_cd, that's probably the culprit, even if it's not in this statement.
+
+  2. A trigger or function on the target table
+  DMS applies changes with normal UPDATEs, so triggers fire. Check for one that casts to the enum, for example NEW.something::tecs_sys_typ or a lookup that falls back to '':
+  SELECT tgname, pg_get_triggerdef(oid)
+  FROM pg_trigger
+  WHERE tgrelid = 'elis_ms_tecs.tecs_rslt'::regclass AND NOT tgisinternal;
+  Also look for rules, generated columns, and check constraints on the table:
+  \d+ elis_ms_tecs.tecs_rslt
+  An audit or history trigger that writes to another table with a tecs_sys_typ column, with the value coming from a variable that defaults to '', is a common cause. This is my best
+  guess, since the logged values all look valid.
+
+  3. How DMS renders the statement
+  awsdms_apply_exceptions shows a reconstructed statement, not necessarily the bound parameters. Test it by running that exact UPDATE yourself in psql, inside a transaction you roll
+  back:
+  BEGIN;
+  UPDATE elis_ms_tecs.tecs_rslt SET ... WHERE tecs_rslt_id = 157192684;
+  ROLLBACK;
+  - If it succeeds: the problem is in what DMS actually sent. Check the CloudWatch debug logs for the real values, and check whether the source column has an empty string that DMS
+    maps differently.
+  - If it fails the same way: the cause is in the target schema (triggers or columns above), and the error detail or \d+ output will point to it.
+  
+  4. Source differences
+  If the source column is char/varchar and the target column is the enum, any row where the source holds '' will fail. For Oracle sources, '' is treated as NULL, which also causes
+  mismatches. Check on the source:
+  SELECT DISTINCT tecs_sys_cd FROM tecs_rslt;
+
+  If you paste the output of the first two queries, I can narrow it down.
 
