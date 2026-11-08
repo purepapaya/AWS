@@ -46,3 +46,18 @@
   If this is the 214M-row table from earlier, a dump-and-restore with indexes built afterward should take hours rather than about 15 days. DMS's own full load can also be sped up
   with parallel-load range segmentation in table settings, if you'd rather stay entirely within DMS.
 
+select * from awsdms_apply_exceptions order by "ERROR_TIME" desc limit 10;
+ 7NKD4WH4DVFT5N7R6R4KUTCV7E | elis_ms_tecs | tecs_rslt  | 2026-11-08 19:03:46.30934  | UPDATE  "elis_ms_tecs"."tecs_rslt" SET
+ "tecs_rslt_id"=157192684, "tecs_resp_id"=505079990, "tecs_subj_id"=452395512, "tecs_sys_cd"='SQ11', "tecs_rec_id"='P6P162085
+00CA0', "relates_ind"='true', "disposition_dttm"='2026-11-08 19:03:45.213000', "disposition_usr"='6331F8C4-7D4C-4E2EE85A8-3D1
+8690CBDF2', "crted_dttm"='2025-04-15 15:27:20.595000', "updtd_dttm"='2026-11-08 19:03:45.227000', "crted_usrid"='ELIS', "updt
+d_usrid"='8464E6A2-B12F-4F3A-B07F-0E0D510CE913', "active_dttm"=NULL, "active"='Y', "active_ind_updtd_by_tecs_req_id"=NULL, "d
+eactivated_usr"=NULL, "latest_rcrded_updtd_dttm"='2015-06-23 04:00:00.000000' WHERE "tecs_rslt_id"=157192684 | RetCode: SQL_E
+RROR  SqlState: 22P02 NativeError: 1 Message: ERROR: invalid input value for enum elis_ms_tecs.tecs_sys_typ: "";+
+
+CREATE TYPE elis_ms_tecs.tecs_sys_typ AS ENUM (
+    'SQ11',
+    'NCIC'
+);
+
+
