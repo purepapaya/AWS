@@ -1,0 +1,25 @@
+psql has no SPOOL (that's SQL*Plus). In psql, use -o, \o, or shell redirection.
+  
+  Run a script in the background with nohup:
+  nohup psql -h HOST -U USER -d mydb -f script.sql -o result.out > psql.log 2>&1 &
+  - -o result.out writes query results to that file.
+  - > psql.log 2>&1 captures errors, notices, and anything else sent to the terminal.
+  - The trailing & backgrounds it. nohup keeps it running if your session drops.
+  
+  One file for everything:
+  nohup psql -h HOST -U USER -d mydb -f script.sql > run.log 2>&1 &
+  Add -a (echo all input) to log each statement as it runs, and -e to echo the queries too.
+
+  Inside a script: \o is the closest to spool.
+  \o /tmp/result.out
+  SELECT ...;
+  \o            -- stop writing to the file
+  The file is created on the machine where psql runs. \copy ... TO 'file' writes client-side too, and COPY ... TO (no backslash) writes on the server, which you can't do on RDS.
+
+  Tips
+  - Password: nohup can't prompt, so use ~/.pgpass or PGPASSWORD. Otherwise it hangs or fails silently.
+  - Stop on error: add -v ON_ERROR_STOP=1 so a failed statement ends the script instead of continuing.
+  - Check progress: tail -f psql.log, and jobs or ps aux | grep psql.
+  - Long jobs: tmux or screen is often easier than nohup, because you can reattach to the live session.
+  - Wait for it: wait works in the same shell, or check the exit code afterward with echo $?. nohup itself won't report it.
+  
