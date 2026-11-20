@@ -1,0 +1,14 @@
+python -c "import pyarrow.parquet as pq; print(pq.ParquetFile('/tmp/file.parquet').schema_arrow)"
+aws s3 cp s3://my-bucket/path/file.parquet /tmp/file.parquet
+aws s3 cp s3://261120-021043603.parquet f.parquet
+
+
+% which python3
+/usr/local/bin/python3
+% pip3 install parquet-tools
+[parquet-tools]  WARNING: The script parquet-tools is installed in '/Users/yucheng.liu/Library/Python/3.14/bin' which is not on PATH.
+
+vi ~/.zshrc
+export PATH="/Users/yucheng.liu/Library/Python/3.14/bin:$PATH"
+
+parquet-tools inspect f.parquet
