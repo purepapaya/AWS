@@ -12,3 +12,7 @@ vi ~/.zshrc
 export PATH="/Users/yucheng.liu/Library/Python/3.14/bin:$PATH"
 
 parquet-tools inspect f.parquet
+
+import pyarrow.parquet as pq, s3fs
+  t = pq.read_table("bucket/path/file.parquet", columns=["json_col"], filesystem=s3fs.S3FileSystem())
+  print(t.schema, t.column("json_col").null_count)
